@@ -3,8 +3,6 @@ export type ClassKey =
   | "Crack"
   | "Crack-Severe"
   | "Speed-Bump"
-  | "Heavy-Vehicle"
-  | "Light-Vehicle"
   | "Pedestrian";
 
 export interface ClassInfo {
@@ -20,8 +18,6 @@ export const CLASSES: ClassInfo[] = [
   { key: "Crack", label: "Crack", color: "#7DD3FC", token: "crack", roadSurface: true },
   { key: "Crack-Severe", label: "Severe Crack", color: "#F87171", token: "severe", roadSurface: true },
   { key: "Speed-Bump", label: "Speed Bump", color: "#A78BFA", token: "bump", roadSurface: true },
-  { key: "Heavy-Vehicle", label: "Heavy Vehicle", color: "#94A3B8", token: "heavy", roadSurface: false },
-  { key: "Light-Vehicle", label: "Light Vehicle", color: "#CBD5E1", token: "light-vehicle", roadSurface: false },
   { key: "Pedestrian", label: "Pedestrian", color: "#34D399", token: "pedestrian", roadSurface: false },
 ];
 

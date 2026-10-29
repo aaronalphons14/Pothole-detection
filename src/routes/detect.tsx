@@ -22,7 +22,7 @@ import { PageTransition, PageShell, SectionTitle } from "@/components/page-trans
 import { CLASSES, MODEL2_CLASSES } from "@/lib/classes";
 import { SAMPLES, type ModelId, type SampleDef } from "@/lib/mock";
 import { runDetection } from "@/lib/api";
-import { saveResult } from "@/lib/detection-store";
+import { saveResult, saveToHistory } from "@/lib/detection-store";
 import type { ClassKey } from "@/lib/classes";
 
 export const Route = createFileRoute("/detect")({
@@ -82,7 +82,12 @@ function ConfSlider({ label, value, onChange }: { label: string; value: number; 
         <Label className="text-xs text-muted-foreground">{label}</Label>
         <span className="font-mono text-xs text-primary">{value}%</span>
       </div>
-      <Slider value={[value]} min={10} max={90} step={5} onValueChange={(vals) => onChange(vals[0] ?? value)} />
+      <Slider value={[value]} min={1} max={90} step={1} onValueChange={(vals) => onChange(vals[0] ?? value)} />
+      <div className="mt-1 flex justify-between font-mono text-[9px] text-muted-foreground/60">
+        <span>1% (Max Recall)</span>
+        <span>25% (Standard)</span>
+        <span>90% (Precision)</span>
+      </div>
     </div>
   );
 }
@@ -92,8 +97,8 @@ function DetectPage() {
   const { tab: tabParam } = Route.useSearch();
   const [tab, setTab] = useState(tabParam === "video" ? "video" : "image");
   const [model, setModel] = useState<ModelId>("both");
-  const [confM1, setConfM1] = useState(40);
-  const [confM2, setConfM2] = useState(40);
+  const [confM1, setConfM1] = useState(25);
+  const [confM2, setConfM2] = useState(25);
   const [selectedClasses, setSelectedClasses] = useState<ClassKey[]>(CLASSES.map((c) => c.key));
 
   const [file, setFile] = useState<File | null>(null);
@@ -162,14 +167,17 @@ function DetectPage() {
       const visual = tab === "video" && !sample ? { ...result, imageUrl: SAMPLES[0]!.imageUrl } : result;
       const filtered = {
         ...visual,
-        detections: visual.detections.filter(
-          (d) =>
-            d.model === "m2" ||
-            selectedClasses.includes(d.className as ClassKey) ||
-            MODEL2_CLASSES.includes(d.className as never),
-        ),
+        detections: visual.detections
+          .filter((d) => !d.className.toLowerCase().includes("vehicle"))
+          .filter(
+            (d) =>
+              d.model === "m2" ||
+              selectedClasses.includes(d.className as ClassKey) ||
+              MODEL2_CLASSES.includes(d.className as never),
+          ),
       };
       saveResult(filtered);
+      saveToHistory(filtered);
       toast.success("Detection complete", { description: `${filtered.detections.length} anomalies found.` });
       await navigate({ to: "/results" });
     } catch {
@@ -189,6 +197,23 @@ function DetectPage() {
           title="Detect road anomalies"
           sub="Configure the models, drop in your media and run the pipeline. Results open with annotated boxes and an exportable report."
         />
+
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <div className="flex items-center gap-3">
+            <span className="live-dot inline-block h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_8px_#34D399]" />
+            <div>
+              <p className="text-xs font-bold text-foreground sm:text-sm">
+                Dual YOLOv8 Inference Engine Connected & Online
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Model 1: Custom YOLOv8m (120 Epochs) · Model 2: YOLOv8s (CRDDC Multi-Damage)
+              </p>
+            </div>
+          </div>
+          <span className="rounded-md border border-border bg-secondary/80 px-2.5 py-1 font-mono text-[11px] text-primary">
+            http://localhost:5000/detect
+          </span>
+        </div>
 
         <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
           {/* Settings panel */}

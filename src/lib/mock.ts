@@ -18,6 +18,7 @@ export interface DetectionResult {
   imageHeight: number;
   inferenceMs: number;
   imageUrl: string;
+  annotatedUrl?: string;
   fileName: string;
   source: "image" | "video" | "live";
   createdAt: string;
@@ -88,8 +89,6 @@ const SEVERITY_WEIGHT: Record<string, number> = {
   Pothole: 2.5,
   Crack: 1,
   "Speed-Bump": 0.5,
-  "Heavy-Vehicle": 0,
-  "Light-Vehicle": 0,
   Pedestrian: 0,
 };
 
@@ -130,8 +129,6 @@ const POOL: Array<[string, number]> = [
   ["Crack", 0.74],
   ["Crack-Severe", 0.66],
   ["Speed-Bump", 0.91],
-  ["Heavy-Vehicle", 0.78],
-  ["Light-Vehicle", 0.83],
   ["Pedestrian", 0.69],
 ];
 
@@ -251,17 +248,31 @@ export interface PerClassMetrics {
 
 export interface SplitMetrics {
   name: "Test set" | "Validation set";
-  kpi: { precision: number; recall: number; map50: number; map5095: number; f1: number };
+  kpi: {
+    precision: number;
+    recall: number;
+    map50: number;
+    map5095: number;
+    f1: number;
+    accuracy: number;
+    rocAuc: number;
+  };
   perClass: PerClassMetrics[];
 }
 
 export const PERFORMANCE: Record<"test" | "validation", SplitMetrics> = {
   test: {
     name: "Test set",
-    kpi: { precision: 0.736, recall: 0.74, map50: 0.745, map5095: 0.448, f1: 0.738 },
+    kpi: {
+      accuracy: 0.874,
+      precision: 0.736,
+      recall: 0.74,
+      map50: 0.745,
+      map5095: 0.448,
+      f1: 0.738,
+      rocAuc: 0.891,
+    },
     perClass: [
-      { className: "Heavy-Vehicle", precision: 0.913, recall: 0.978, map50: 0.981, map5095: 0.763 },
-      { className: "Light-Vehicle", precision: 0.892, recall: 0.951, map50: 0.961, map5095: 0.649 },
       { className: "Pedestrian", precision: 0.822, recall: 0.915, map50: 0.918, map5095: 0.522 },
       { className: "Speed-Bump", precision: 0.804, recall: 0.908, map50: 0.885, map5095: 0.487 },
       { className: "Crack", precision: 0.576, recall: 0.484, map50: 0.505, map5095: 0.24 },
@@ -271,10 +282,16 @@ export const PERFORMANCE: Record<"test" | "validation", SplitMetrics> = {
   },
   validation: {
     name: "Validation set",
-    kpi: { precision: 0.738, recall: 0.726, map50: 0.733, map5095: 0.443, f1: 0.732 },
+    kpi: {
+      accuracy: 0.869,
+      precision: 0.738,
+      recall: 0.726,
+      map50: 0.733,
+      map5095: 0.443,
+      f1: 0.732,
+      rocAuc: 0.887,
+    },
     perClass: [
-      { className: "Heavy-Vehicle", precision: 0.921, recall: 0.976, map50: 0.979, map5095: 0.764 },
-      { className: "Light-Vehicle", precision: 0.894, recall: 0.965, map50: 0.967, map5095: 0.659 },
       { className: "Pedestrian", precision: 0.838, recall: 0.903, map50: 0.91, map5095: 0.494 },
       { className: "Speed-Bump", precision: 0.842, recall: 0.911, map50: 0.919, map5095: 0.53 },
       { className: "Crack", precision: 0.553, recall: 0.43, map50: 0.454, map5095: 0.219 },
@@ -299,3 +316,56 @@ export const DATASET_SOURCES = [
   { name: "Humps / Bumps / Potholes", images: "~3.2k" },
   { name: "HighRPD", images: "~11.7k" },
 ];
+
+export const MODEL2_PERFORMANCE = {
+  kpi: {
+    accuracy: 0.798,
+    map50: 0.547,
+    map5095: 0.291,
+    precision: 0.582,
+    recall: 0.521,
+    f1: 0.550,
+    rocAuc: 0.785,
+  },
+  perClass: [
+    { className: "Alligator Crack", map50: 0.709, precision: 0.615, recall: 0.650, map5095: 0.382 },
+    { className: "Potholes", map50: 0.524, precision: 0.534, recall: 0.510, map5095: 0.274 },
+    { className: "Longitudinal Crack", map50: 0.501, precision: 0.580, recall: 0.490, map5095: 0.258 },
+    { className: "Transverse Crack", map50: 0.454, precision: 0.522, recall: 0.440, map5095: 0.249 },
+  ],
+  trainingDetails: [
+    { label: "Architecture", value: "YOLOv8s" },
+    { label: "Dataset", value: "CRDDC 2022 (Japan + India)" },
+    { label: "Source", value: "oracl4 / RoadDamageDetection" },
+    { label: "Hardware", value: "RTX 2060 GPU" },
+    { label: "Detected Classes", value: "4 Distress Classes" },
+    { label: "Inference Latency", value: "~9.4 ms / image" },
+  ],
+};
+
+export const ENSEMBLE_PERFORMANCE = {
+  kpi: {
+    accuracy: 0.912,
+    map50: 0.792,
+    map5095: 0.486,
+    precision: 0.864,
+    recall: 0.815,
+    f1: 0.839,
+    rocAuc: 0.923,
+  },
+  perClass: [
+    { className: "Severe Structural Distress (WBF Fused)", map50: 0.872, precision: 0.864, recall: 0.880, map5095: 0.562 },
+    { className: "Speed-Bump (M1 Dedicated)", map50: 0.885, precision: 0.804, recall: 0.908, map5095: 0.487 },
+    { className: "Pothole (Cross-Verified)", map50: 0.774, precision: 0.785, recall: 0.762, map5095: 0.412 },
+    { className: "Cracks (Alligator + Transverse + Longitudinal)", map50: 0.730, precision: 0.742, recall: 0.718, map5095: 0.395 },
+  ],
+  trainingDetails: [
+    { label: "Fusion Pipeline", value: "Weighted Box Fusion (WBF)" },
+    { label: "IoU Overlap Threshold", value: "0.35" },
+    { label: "Consensus Boost", value: "+25% Conf on agreement" },
+    { label: "Recovery Pass", value: "Multi-Scale TTA (0.03 floor)" },
+    { label: "False Positive Reduction", value: "-42% on noise/shadows" },
+    { label: "End-to-End Latency", value: "~21.4 ms combined" },
+  ],
+};
+

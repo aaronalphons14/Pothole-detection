@@ -1,12 +1,7 @@
 import {
   type DetectionResult,
   type HistoryEntry,
-  type ModelId,
-  SAMPLES,
-  SEED_HISTORY,
   computeSeverity,
-  mockDetectionsFor,
-  sampleById,
 } from "@/lib/mock";
 
 const RESULT_KEY = "roadsense:current-result";
@@ -23,38 +18,39 @@ export function saveResult(result: DetectionResult) {
 export function loadResult(): DetectionResult | null {
   try {
     const raw = sessionStorage.getItem(RESULT_KEY);
-    return raw ? (JSON.parse(raw) as DetectionResult) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DetectionResult;
+    if (parsed && Array.isArray(parsed.detections)) {
+      parsed.detections = parsed.detections.filter(
+        (d) => !d.className?.toLowerCase().includes("vehicle"),
+      );
+    }
+    return parsed;
   } catch {
     return null;
   }
 }
 
-/**
- * The results page always shows something: if no detection has been run in
- * this session it falls back to a realistic demo scan (pothole sample).
- */
-export function getOrDemoResult(): DetectionResult {
-  return loadResult() ?? entryToResult(SEED_HISTORY[0]!);
-}
-
-function entryToResult(entry: HistoryEntry): DetectionResult {
-  const { id: _id, severity: _severity, ...result } = entry;
-  return result;
+export function getOrDemoResult(): DetectionResult | null {
+  return loadResult();
 }
 
 export function loadHistory(): HistoryEntry[] {
-  let saved: HistoryEntry[] = [];
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
-    if (raw) saved = JSON.parse(raw) as HistoryEntry[];
+    if (!raw) return [];
+    const saved = JSON.parse(raw) as HistoryEntry[];
+    return saved
+      .map((entry) => ({
+        ...entry,
+        detections: Array.isArray(entry.detections)
+          ? entry.detections.filter((d) => !d.className?.toLowerCase().includes("vehicle"))
+          : [],
+      }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   } catch {
-    saved = [];
+    return [];
   }
-  const merged = [...saved, ...SEED_HISTORY];
-  const seen = new Set<string>();
-  return merged
-    .filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export function saveToHistory(result: DetectionResult): HistoryEntry[] {
@@ -64,7 +60,7 @@ export function saveToHistory(result: DetectionResult): HistoryEntry[] {
     severity: computeSeverity(result.detections),
   };
   try {
-    const saved = loadHistory().filter((e) => !SEED_HISTORY.some((s) => s.id === e.id));
+    const saved = loadHistory();
     localStorage.setItem(HISTORY_KEY, JSON.stringify([entry, ...saved]));
   } catch {
     /* storage unavailable */
@@ -72,17 +68,3 @@ export function saveToHistory(result: DetectionResult): HistoryEntry[] {
   return loadHistory();
 }
 
-/** History rows carry a sample id so "View" can restore a full result. */
-export function historySampleId(entry: HistoryEntry): string {
-  const match = SAMPLES.find((s) => s.imageUrl === entry.imageUrl);
-  return match?.id ?? "pothole";
-}
-
-export function entryFromSample(entry: HistoryEntry): DetectionResult {
-  const sample = sampleById(historySampleId(entry));
-  return {
-    ...entryToResult(entry),
-    imageUrl: sample.imageUrl,
-    detections: sample.detections,
-  };
-}

@@ -4,7 +4,6 @@ import {
   type DetectionResult,
   type ModelId,
   type SampleDef,
-  mockDetectionsFor,
 } from "@/lib/mock";
 
 export interface RunDetectionInput {
@@ -26,6 +25,8 @@ export interface DetectApiResponse {
   image_width: number;
   image_height: number;
   inference_ms: number;
+  original_url?: string;
+  result_url?: string;
 }
 
 function loadImageSize(file: File): Promise<{ w: number; h: number; url: string }> {
@@ -38,103 +39,78 @@ function loadImageSize(file: File): Promise<{ w: number; h: number; url: string 
   });
 }
 
-function waitFor(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-const sleep = waitFor;
-
 /**
- * Calls POST {VITE_API_URL}/detect when the API is configured, and falls
- * back to realistic mock data (or uses it exclusively when no env var is
- * set) so the whole app works without the Python backend.
+ * Executes real YOLO inference via the Python backend at {VITE_API_URL}/detect.
+ * Does NOT generate mock detections. If backend is unavailable, it reports an error.
  */
 export async function runDetection(input: RunDetectionInput): Promise<DetectionResult> {
-  const base = import.meta.env["VITE_API_URL"] as string | undefined;
+  const base = (import.meta.env["VITE_API_URL"] as string | undefined) || "http://localhost:5000";
   const source = input.source ?? "image";
 
-  if (base && input.file) {
-    try {
-      const body = new FormData();
-      body.append("file", input.file);
-      body.append("model", input.model);
-      body.append("conf_m1", String(input.confM1));
-      body.append("conf_m2", String(input.confM2));
-      const res = await fetch(`${base.replace(/\/$/, "")}/detect`, { method: "POST", body });
-      if (!res.ok) throw new Error(`API returned ${res.status}`);
-      const data = (await res.json()) as DetectApiResponse;
-      const { w, h, url } = await loadImageSize(input.file);
-      const detections: Detection[] = data.detections.map((d) => ({
-        model: d.model,
-        className: d.class,
-        confidence: d.confidence,
-        box: d.box,
-      }));
-      return {
-        detections,
-        imageWidth: data.image_width || w,
-        imageHeight: data.image_height || h,
-        inferenceMs: Math.round(data.inference_ms),
-        imageUrl: url,
-        fileName: input.file.name,
-        source,
-        createdAt: new Date().toISOString(),
-        modelUsed: input.model,
-        confM1: input.confM1,
-        confM2: input.confM2,
-      };
-    } catch {
-      // network/API failure — fall through to the offline simulation
-    }
+  if (!input.file && !input.sample) {
+    throw new Error("No image or sample selected for analysis.");
   }
 
-  await sleep(1100 + Math.random() * 700);
-
-  if (input.sample) {
-    const detd = input.sample.detections.filter((d) =>
-      d.model === "m1" ? d.confidence >= input.confM1 / 100 : d.confidence >= input.confM2 / 100,
-    );
-    return {
-      detections: detd,
-      imageWidth: 1280,
-      imageHeight: 720,
-      inferenceMs: 10 + Math.round(Math.random() * 6),
-      imageUrl: input.sample.imageUrl,
-      fileName: input.sample.fileName,
-      source,
-      createdAt: new Date().toISOString(),
-      modelUsed: input.model,
-      confM1: input.confM1,
-      confM2: input.confM2,
-    };
-  }
+  let fileToSend: File | Blob;
+  let fileName: string;
+  let displayUrl: string;
+  let wNatural = 1280;
+  let hNatural = 720;
 
   if (input.file) {
-    const { w, h, url } = await loadImageSize(input.file);
-    return {
-      detections: mockDetectionsFor(input.file.name, input.model, input.confM1, input.confM2),
-      imageWidth: w,
-      imageHeight: h,
-      inferenceMs: 10 + Math.round(Math.random() * 6),
-      imageUrl: url,
-      fileName: input.file.name,
-      source,
-      createdAt: new Date().toISOString(),
-      modelUsed: input.model,
-      confM1: input.confM1,
-      confM2: input.confM2,
-    };
+    fileToSend = input.file;
+    fileName = input.file.name;
+    const loaded = await loadImageSize(input.file);
+    displayUrl = loaded.url;
+    wNatural = loaded.w;
+    hNatural = loaded.h;
+  } else {
+    const sampleResp = await fetch(input.sample!.imageUrl);
+    const sampleBlob = await sampleResp.blob();
+    fileToSend = new File([sampleBlob], input.sample!.fileName, { type: "image/jpeg" });
+    fileName = input.sample!.fileName;
+    displayUrl = input.sample!.imageUrl;
   }
 
-  // nothing provided — demo scan
-  const demo = SAMPLES[0];
+  const body = new FormData();
+  body.append("file", fileToSend);
+  body.append("model", input.model);
+  body.append("conf_m1", String(input.confM1));
+  body.append("conf_m2", String(input.confM2));
+
+  let res: Response;
+  try {
+    res = await fetch(`${base.replace(/\/$/, "")}/detect`, { method: "POST", body });
+  } catch (netErr) {
+    throw new Error(
+      `Cannot connect to RoadSense ML backend at ${base}. Please verify python backend_server.py is running.`
+    );
+  }
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Inference engine error (${res.status}): ${errText || "Unknown backend error"}`);
+  }
+
+  const data = (await res.json()) as DetectApiResponse;
+
+  const detections: Detection[] = data.detections
+    .filter((d) => !d.class.toLowerCase().includes("vehicle"))
+    .map((d) => ({
+      model: d.model,
+      className: d.class,
+      confidence: d.confidence,
+      box: d.box,
+    }));
+
   return {
-    detections: demo.detections,
-    imageWidth: 1280,
-    imageHeight: 720,
-    inferenceMs: 12,
-    imageUrl: demo.imageUrl,
-    fileName: demo.fileName,
+    detections,
+    imageWidth: data.image_width || wNatural,
+    imageHeight: data.image_height || hNatural,
+    inferenceMs: Math.round(data.inference_ms),
+    imageUrl: data.original_url || displayUrl,
+    annotatedUrl: data.result_url,
+    fileName,
     source,
     createdAt: new Date().toISOString(),
     modelUsed: input.model,
@@ -142,3 +118,4 @@ export async function runDetection(input: RunDetectionInput): Promise<DetectionR
     confM2: input.confM2,
   };
 }
+

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detection Results | Road Anomaly Detection</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="badge">Inference Complete</div>
+            <h1>Detection <span>Results</span></h1>
+            <p>Visual anomaly localization and automated distress classification report</p>
+        </header>
+
+        <div class="results-section">
+            <div class="image-container">
+                <div class="image-box">
+                    <h3>📷 Source Input</h3>
+                    <img src="{{ url_for('static', filename='uploads/' + original) }}" alt="Original Image">
+                </div>
+                <div class="image-box">
+                    <h3>🎯 Annotated Detections</h3>
+                    <img src="{{ url_for('static', filename='results/' + result) }}" alt="Detection Results">
+                </div>
+            </div>
+
+            <div class="detections-info">
+                <h3>Detected Anomaly Breakdown</h3>
+                {% if detections %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Anomaly Class</th>
+                                <th>Confidence Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for detection in detections %}
+                                <tr>
+                                    <td>{{ detection.id }}</td>
+                                    <td><strong>{{ detection.class }}</strong></td>
+                                    <td>{{ detection.confidence }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p style="color: var(--text-secondary); padding: 15px 0;">No road defects or anomalies detected above the confidence threshold.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="{{ url_for('index') }}" class="btn">← Analyze Another Image</a>
+        </div>
+
+        <footer>
+            <p>Road Anomaly Detection Platform • Powered by YOLOv8</p>
+        </footer>
+    </div>
+</body>
+</html>
