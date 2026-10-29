@@ -25,8 +25,10 @@ export const CLASSES: ClassInfo[] = [
   { key: "Pedestrian", label: "Pedestrian", color: "#34D399", token: "pedestrian", roadSurface: false },
 ];
 
+const FALLBACK_CLASS = CLASSES[0]!;
+
 export const classInfo = (key: string): ClassInfo =>
-  CLASSES.find((c) => c.key === key) ?? CLASSES[0];
+  CLASSES.find((c) => c.key === key) ?? FALLBACK_CLASS;
 
 /** Model 2 (CRDDC2022) sub-classes, all rendered as dashed blue boxes. */
 export const MODEL2_CLASSES = [

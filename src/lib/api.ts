@@ -1,4 +1,5 @@
 import {
+  SAMPLES,
   type Detection,
   type DetectionResult,
   type ModelId,
@@ -7,8 +8,8 @@ import {
 } from "@/lib/mock";
 
 export interface RunDetectionInput {
-  file?: File;
-  sample?: SampleDef;
+  file?: File | undefined;
+  sample?: SampleDef | undefined;
   model: ModelId;
   confM1: number;
   confM2: number;
@@ -49,7 +50,7 @@ const sleep = waitFor;
  * set) so the whole app works without the Python backend.
  */
 export async function runDetection(input: RunDetectionInput): Promise<DetectionResult> {
-  const base = import.meta.env.VITE_API_URL as string | undefined;
+  const base = import.meta.env["VITE_API_URL"] as string | undefined;
   const source = input.source ?? "image";
 
   if (base && input.file) {
