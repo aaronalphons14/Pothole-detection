@@ -26,9 +26,10 @@ import { saveResult } from "@/lib/detection-store";
 import type { ClassKey } from "@/lib/classes";
 
 export const Route = createFileRoute("/detect")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    tab: typeof search.tab === "string" ? search.tab : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => {
+    const tab = search["tab"];
+    return typeof tab === "string" ? { tab } : {};
+  },
   head: () => ({
     meta: [
       { title: "Detect — RoadSense" },
@@ -81,7 +82,7 @@ function ConfSlider({ label, value, onChange }: { label: string; value: number; 
         <Label className="text-xs text-muted-foreground">{label}</Label>
         <span className="font-mono text-xs text-primary">{value}%</span>
       </div>
-      <Slider value={[value]} min={10} max={90} step={5} onValueChange={([v]) => onChange(v)} />
+      <Slider value={[value]} min={10} max={90} step={5} onValueChange={(vals) => onChange(vals[0] ?? value)} />
     </div>
   );
 }
@@ -158,7 +159,7 @@ function DetectPage() {
         source: tab === "video" ? "video" : "image",
       });
       // Video uploads are reported on a representative poster frame.
-      const visual = tab === "video" && !sample ? { ...result, imageUrl: SAMPLES[0].imageUrl } : result;
+      const visual = tab === "video" && !sample ? { ...result, imageUrl: SAMPLES[0]!.imageUrl } : result;
       const filtered = {
         ...visual,
         detections: visual.detections.filter(

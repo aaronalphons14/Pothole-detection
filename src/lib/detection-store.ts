@@ -34,7 +34,7 @@ export function loadResult(): DetectionResult | null {
  * this session it falls back to a realistic demo scan (pothole sample).
  */
 export function getOrDemoResult(): DetectionResult {
-  return loadResult() ?? entryToResult(SEED_HISTORY[0]);
+  return loadResult() ?? entryToResult(SEED_HISTORY[0]!);
 }
 
 function entryToResult(entry: HistoryEntry): DetectionResult {

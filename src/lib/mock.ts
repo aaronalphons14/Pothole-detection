@@ -79,7 +79,7 @@ export const SAMPLES: SampleDef[] = [
   },
 ];
 
-export const sampleById = (id: string) => SAMPLES.find((s) => s.id === id) ?? SAMPLES[0];
+export const sampleById = (id: string) => SAMPLES.find((s) => s.id === id) ?? SAMPLES[0]!;
 
 /* ---------------- severity ---------------- */
 
@@ -141,7 +141,8 @@ export function mockDetectionsFor(fileName: string, model: ModelId, confM1: numb
   const count = 2 + Math.floor(rand() * 3); // 2–4 boxes
   const out: Detection[] = [];
   for (let i = 0; i < count; i++) {
-    const [className, baseConf] = POOL[Math.floor(rand() * POOL.length)];
+    const pick = POOL[Math.floor(rand() * POOL.length)]!;
+    const [className, baseConf] = pick;
     const isM2 = model !== "m1" && rand() > 0.6;
     const conf = Math.min(0.95, Math.max(0.1, baseConf + (rand() - 0.5) * 0.12));
     const threshold = isM2 ? confM2 / 100 : confM1 / 100;
